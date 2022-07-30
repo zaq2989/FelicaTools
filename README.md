@@ -8,17 +8,19 @@ Miscellaneous FeliCa Tools
 
 `pip install nfcpy`
 
-## Windows
+[Getting started - nfcpy documentation](https://nfcpy.readthedocs.io/en/latest/topics/get-started.html)
 
-Replace RC-S380 driver to WinUSB with Zadig
+### Windows
 
-## Mac
+Replace RC-S380 driver to WinUSB with [Zadig](https://zadig.akeo.ie/).
 
-TODO
-
-## Linux
+### Mac
 
 TODO
+
+### Linux
+
+Nothing to do.
 
 # Features
 
