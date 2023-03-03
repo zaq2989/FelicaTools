@@ -4,10 +4,8 @@ import sys
 fromhex = bytearray.fromhex
 
 
-def emulate(FILE, card, DEVICE='usb:054c', TIMEOUT=1.):
-    sensf_res = fromhex('01'+card['idm']+card['pmm']+card['sys'])
-
-    clf = nfc.ContactlessFrontend(DEVICE)
+def emulate(clf, card,  system_code, TIMEOUT=1.):
+    sensf_res = fromhex('01'+card[system_code]['idm']+card['pmm']+system_code)
 
     print('waiting reader...', file=sys.stderr)
     target = None
@@ -31,6 +29,8 @@ def emulate(FILE, card, DEVICE='usb:054c', TIMEOUT=1.):
         if command_code == 0x06:  # Read Without Encryption
             m = command[11]
             # TODO
+        if command_code == 0x0A:  # Request System Code
+            pass  # TODO
         if command_code == 0x0C:  # Request System Code
             pass  # TODO
 
@@ -51,31 +51,29 @@ def emulate(FILE, card, DEVICE='usb:054c', TIMEOUT=1.):
             print('Exchange Finished', file=sys.stderr)
             break
 
-    clf.close()
-
 
 def main(args):
+    import json
+
     FILE = args.FILE
-    DEVICE = args.device
+    DEVICE = 'usb:054c:06c3'
+    # DEVICE = args.device
     TIMEOUT = args.timeout
 
-    card = dict()
+    system_code = 'FE00'.lower()
 
-    for l in open(FILE, 'r'):
-        l = l.replace('\n', '')
-        l = l.replace(' ', '')
-        if l.startswith('#'):
-            continue
-        if '=' in l:
-            i = l.find('=')
-            key, value = l[:i].lower(), l[i+1:].lower()
-            card[key] = value
+    card = json.loads(open(FILE, 'r').read().lower())
 
-    if card['idm'] == 'random':  # TODO
-        import random
-        pass
+    # if card['idm'] == 'random':  # TODO
+    #     import random
+    #     pass
 
-    emulate(**args)
+    clf = nfc.ContactlessFrontend(DEVICE)
+
+    try:
+        emulate(clf, card, system_code)
+    finally:
+        clf.close()
 
 
 if __name__ == '__main__':
