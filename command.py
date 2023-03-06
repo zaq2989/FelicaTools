@@ -31,9 +31,7 @@ def command(exchange, system_code):
             h = '# ' + h[2:]
             h = h.replace(idm, ' [IDm] ')
             print('>>', h)
-        except KeyboardInterrupt:
-            break
-        except EOFError:
+        except (KeyboardInterrupt, EOFError):
             break
         except ValueError as e:
             print(e, file=sys.stderr)
