@@ -19,7 +19,6 @@ def command(exchange, system_code):
             if i == '':
                 continue
             i = i.lower().replace('[idm]', idm)
-            i = ('%02x' % (len(i)//2+1)) + i
 
             r = exchange(fromhex(i))
 
@@ -41,15 +40,20 @@ def command(exchange, system_code):
 
 def main(args):
     device = args.device
-    timeout = args.timeout
+    timeout_s = args.timeout
     system_code = args.system_code
+
+    clf = nfc.ContactlessFrontend(device)
     try:
-        clf = nfc.ContactlessFrontend(device)
         target = clf.sense(RemoteTarget("212F"))
         if target is None:
             print('No card', file=sys.stderr)
             exit(1)
-        command(lambda x: clf.exchange(x, timeout), system_code)
+
+        def exchange(command):
+            return clf.exchange((len(command)+1).to_bytes() + command, timeout_s)
+
+        command(exchange, system_code)
     finally:
         clf.close()
 
