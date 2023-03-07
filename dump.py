@@ -1,6 +1,6 @@
 import nfc
 from nfc.clf import RemoteTarget
-from exchange import exchange
+from utils import exchange
 fromhex = bytearray.fromhex
 
 

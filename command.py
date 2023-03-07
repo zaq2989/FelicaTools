@@ -1,7 +1,7 @@
 import nfc
 from nfc.clf import RemoteTarget, TimeoutError
 import sys
-from exchange import exchange
+from utils import exchange
 fromhex = bytearray.fromhex
 
 
