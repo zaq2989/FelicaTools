@@ -1,19 +1,30 @@
 import nfc
 from nfc.clf import RemoteTarget
-from utils import exchange
+from utils import *
 fromhex = bytearray.fromhex
 
 
-def dump(exchange, idm_byte):
-    card = {'version': '0.1'}
+def dump(exchange, idm, system_code_filter, debug=False):
+    def dprint(text):
+        import sys
+        if debug:
+            print(text, file=sys.stderr)
+
+    card = {'version': VERSION}
 
     # Request System Code
-    response_RSC = exchange(fromhex(f'0C {idm_byte.hex()}'))
+    response_RSC = exchange(fromhex(f'0C {idm}'))
     system_codes = [response_RSC[10:][i*2:(i+1)*2].hex()
                     for i in range(response_RSC[9])]
 
+    dprint(f'{system_codes=}')
+
     for system_code in system_codes:
-        system = dict()
+        if system_code_filter is not None:
+            if system_code != system_code_filter.lower():
+                continue
+
+        system = {}
 
         # Polling
         idm = exchange(fromhex(f'00 {system_code} 00 00'))[1:9].hex()
@@ -33,8 +44,10 @@ def dump(exchange, idm_byte):
 
             service_codes.append(s)
 
+        dprint(f'{service_codes=}')
+
         for service_code in service_codes:
-            service = dict()
+            service = {}
             if len(service_code)//2 == 2:
                 # Request Service
                 command_RS = fromhex(f'02 {idm} 01 {service_code}')
@@ -51,7 +64,7 @@ def dump(exchange, idm_byte):
                         if SF1 != 0x00:
                             break
                         data = response_RWE[12:].hex()
-                        service['%04x' % (block)] = data
+                        service['%04x' % block] = data
                         block += 1
 
             if len(service) != 0:
@@ -65,27 +78,37 @@ def dump(exchange, idm_byte):
 def main(args):
     import json
 
-    device = 'usb'
+    device = args.device
+    FILE = args.output
+    system_code_filter = args.system_code_filter
+    # debug = args.debug
 
     clf = nfc.ContactlessFrontend(device)
 
     try:
         target = clf.sense(RemoteTarget("212F"))
         assert target is not None, 'No card'
-        idm = target.sensf_res[1:9]
-        pmm = target.sensf_res[9:17]
-        card = dump(exchange(clf, 1.), idm)
-        card['PMm'] = pmm.hex()
-        print(json.dumps(card, indent=True))
+        idm = target.sensf_res[1:9].hex()
+        pmm = target.sensf_res[9:17].hex()
+        card = dump(exchange(clf, 1.), idm, system_code_filter)
+        card['PMm'] = pmm
+        fc = json.dumps(card, indent=True)
+        print(fc)
+        if FILE is not None:
+            open(FILE, 'w').write(fc)
     finally:
         clf.close()
 
 
 if __name__ == '__main__':
     import argparse
+
     parser = argparse.ArgumentParser()
 
-    # parser.add_argument()
+    parser.add_argument('--device', default='usb')
+    parser.add_argument('-o', '--output', metavar='FILE')
+    parser.add_argument('--system-code-filter')
+    # parser.add_argument('-d', '--debug', action='store_true')
 
     args = parser.parse_args()
 

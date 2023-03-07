@@ -1,11 +1,11 @@
 import nfc
 from nfc.clf import LocalTarget, TimeoutError, BrokenLinkError
 import sys
-from utils import exchange
+from utils import *
 fromhex = bytearray.fromhex
 
 
-def emulate(exchange, card,  system_code, command):
+def emulate(exchange, card, system_code, command):
     while True:
         idm = card[system_code]['idm']
         print('<< #', command.hex())
@@ -21,7 +21,7 @@ def emulate(exchange, card,  system_code, command):
                 if request_code == 0x01:
                     response += fromhex(system_code)
                 if request_code == 0x02:
-                    response += b'\x00\x01'  # TODO
+                    response += fromhex('0083')
         if command_code == 0x04:  # Request Response
             response = fromhex(f'05 {idm} 00')
         if command_code == 0x06:  # Read Without Encryption
@@ -37,17 +37,14 @@ def emulate(exchange, card,  system_code, command):
             for block in blocks:
                 data += card[system_code][service_codes[0]][block]
             response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
-        if command_code == 0x0A:  # Search Service Code
-            pass  # TODO
         if command_code == 0x0C:  # Request System Code
-            system_codes = [s for s in card.keys() if len(s) == 4]  # TODO
+            system_codes = [s for s in card.keys() if len(s) == 4]
             response = fromhex(
                 f'0D {idm} {len(system_codes):02x} {" ".join(system_codes)}')
 
         if response is None:
             print(f'Unknown command code: {command_code:02x}', file=sys.stderr)
-            exchange(bytearray(0))
-            continue
+            break
 
         assert isinstance(response, bytearray)
         print('>> #', response.hex())
@@ -66,18 +63,21 @@ def emulate(exchange, card,  system_code, command):
 def main(args):
     import json
 
-    file = args.FILE
+    FILE = args.FILE
     device = 'usb:054c:06c3'
     # DEVICE = args.device
-    timeout_s = args.timeout
+    # timeout_s = args.timeout
+    timeout_s = 1.
 
     system_code = 'FE00'.lower()
 
-    card = json.loads(open(file, 'r').read().lower())
+    card = json.loads(open(FILE, 'r').read().lower())
 
-    # if card['idm'] == 'random':  # TODO
-    #     import random
-    #     pass
+    assert card['version'] == VERSION, 'unsupported version'
+
+    if card[system_code]['idm'] == 'random':
+        import random
+        card[system_code]['idm'] = random.randbytes(8).hex()
 
     clf = nfc.ContactlessFrontend(device)
 
@@ -92,10 +92,8 @@ def main(args):
             target = clf.listen(LocalTarget(
                 "212F", sensf_res=sensf_res), timeout=1.)
 
-        # tt3_cmd = target.tt3_cmd
-        # command = (len(tt3_cmd)+1).to_bytes(1, "big") + tt3_cmd
-
-        emulate(exchange(clf, 1.), card, system_code, target.tt3_cmd)
+        emulate(exchange(clf, timeout_s), card,
+                system_code, target.tt3_cmd)
     finally:
         clf.close()
 
