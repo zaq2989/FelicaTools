@@ -1,5 +1,6 @@
 import nfc
 from nfc.clf import RemoteTarget
+from exchange import exchange
 fromhex = bytearray.fromhex
 
 
@@ -73,8 +74,7 @@ def main(args):
         assert target is not None, 'No card'
         idm = target.sensf_res[1:9]
         pmm = target.sensf_res[9:17]
-        card = dump(lambda c: clf.exchange(
-            (len(c)+1).to_bytes(1, "big") + c, 1.)[1:], idm)
+        card = dump(exchange(clf, 1.), idm)
         card['PMm'] = pmm.hex()
         print(json.dumps(card, indent=True))
     finally:

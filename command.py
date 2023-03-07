@@ -1,6 +1,7 @@
 import nfc
 from nfc.clf import RemoteTarget, TimeoutError
 import sys
+from exchange import exchange
 fromhex = bytearray.fromhex
 
 
@@ -22,12 +23,11 @@ def command(exchange, system_code):
 
             r = exchange(fromhex(i))
 
-            if r[1] == 0x01:  # polling
-                idm = r[2:10].hex()
+            if r[0] == 0x01:  # polling
+                idm = r[1:9].hex()
                 print(f'\t[IDm] set to {idm}', file=sys.stderr)
             h = r.hex()
-            assert r[0] == len(r)
-            h = '# ' + h[2:]
+            h = '# ' + h
             h = h.replace(idm, ' [IDm] ')
             print('>>', h)
         except (KeyboardInterrupt, EOFError):
@@ -50,10 +50,7 @@ def main(args):
             print('No card', file=sys.stderr)
             exit(1)
 
-        def exchange(command):
-            return clf.exchange((len(command)+1).to_bytes(1, "big") + command, timeout_s)
-
-        command(exchange, system_code)
+        command(exchange(clf, timeout_s), system_code)
     finally:
         clf.close()
 
