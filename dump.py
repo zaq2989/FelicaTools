@@ -3,17 +3,21 @@ from nfc.clf import RemoteTarget
 fromhex = bytearray.fromhex
 
 
-def dump(exchange, idm):
-    response_RSC = exchange(fromhex(f'0C {idm.hex()}'))  # Request System Code
+def dump(exchange, idm_byte):
+    card = {'version': '0.1'}
+
+    # Request System Code
+    response_RSC = exchange(fromhex(f'0C {idm_byte.hex()}'))
     system_codes = [response_RSC[10:][i*2:(i+1)*2].hex()
                     for i in range(response_RSC[9])]
 
-    print(f'{system_codes=}')
-
     for system_code in system_codes:
-        print(f'{system_code=}')
+        system = dict()
+
         # Polling
         idm = exchange(fromhex(f'00 {system_code} 00 00'))[1:9].hex()
+
+        system['IDm'] = idm
 
         service_codes = []
 
@@ -29,27 +33,37 @@ def dump(exchange, idm):
             service_codes.append(s)
 
         for service_code in service_codes:
-            print(f'{service_code=}')
+            service = dict()
             if len(service_code)//2 == 2:
                 # Request Service
                 command_RS = fromhex(f'02 {idm} 01 {service_code}')
                 response_RS = exchange(command_RS).hex()
-                print(f'{response_RS=}')
 
                 if response_RS.endswith('0000'):
-                    for block in range(16):  # TODO
+                    block = 0x8000
+                    while True:
                         # Read Without Encryption
                         command_RWE = fromhex(f'06 {idm} 01 {service_code} 01') + \
-                            (0x8000+block).to_bytes(2, "big")
+                            block.to_bytes(2, "big")
                         response_RWE = exchange(command_RWE)
                         SF1, SF2 = response_RWE[9], response_RWE[10]
                         if SF1 != 0x00:
                             break
                         data = response_RWE[12:].hex()
-                        print('%04x' % (block), ':', data)
+                        service['%04x' % (block)] = data
+                        block += 1
+
+            if len(service) != 0:
+                system[service_code] = service
+
+        card[system_code] = system
+
+    return card
 
 
 def main(args):
+    import json
+
     device = 'usb'
 
     clf = nfc.ContactlessFrontend(device)
@@ -58,7 +72,11 @@ def main(args):
         target = clf.sense(RemoteTarget("212F"))
         assert target is not None, 'No card'
         idm = target.sensf_res[1:9]
-        dump(lambda c: clf.exchange((len(c)+1).to_bytes(1, "big") + c, 1.)[1:], idm)
+        pmm = target.sensf_res[9:17]
+        card = dump(lambda c: clf.exchange(
+            (len(c)+1).to_bytes(1, "big") + c, 1.)[1:], idm)
+        card['PMm'] = pmm.hex()
+        print(json.dumps(card, indent=True))
     finally:
         clf.close()
 
