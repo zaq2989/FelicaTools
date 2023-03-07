@@ -58,7 +58,7 @@ def main(args):
         target = clf.sense(RemoteTarget("212F"))
         assert target is not None, 'No card'
         idm = target.sensf_res[1:9]
-        dump(lambda c: clf.exchange((len(c)+1).to_bytes() + c, 1.)[1:], idm)
+        dump(lambda c: clf.exchange((len(c)+1).to_bytes(1, "big") + c, 1.)[1:], idm)
     finally:
         clf.close()
 
