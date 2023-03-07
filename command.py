@@ -51,7 +51,7 @@ def main(args):
             exit(1)
 
         def exchange(command):
-            return clf.exchange((len(command)+1).to_bytes() + command, timeout_s)
+            return clf.exchange((len(command)+1).to_bytes(1, "big") + command, timeout_s)
 
         command(exchange, system_code)
     finally:
