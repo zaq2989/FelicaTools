@@ -7,7 +7,7 @@ from utils import *
 fromhex = bytearray.fromhex
 
 
-def emulate(exchange, card, system_code, command):
+def emulate(exchange, card, system_code, command, system_codes):
     while True:
         idm = card[system_code]['idm']
         print('<< #', command.hex())
@@ -16,7 +16,7 @@ def emulate(exchange, card, system_code, command):
         if command_code == 0x00:  # Polling
             s = command[1:3].hex()
             request_code = command[3]
-            if s in card:
+            if s in system_codes:
                 system_code = s
                 response = fromhex(
                     f'01 {card[system_code]["idm"]} {card["pmm"]}')
@@ -24,6 +24,12 @@ def emulate(exchange, card, system_code, command):
                     response += fromhex(system_code)
                 if request_code == 0x02:
                     response += fromhex('0083')
+            else:
+                print('Unknown System Code', file=sys.stderr)
+                print('Maybe scanning this?', file=sys.stderr)
+                print(f"{sys.argv[0]} doesn't support being scanned",
+                      file=sys.stderr)
+                break
         if command_code == 0x04:  # Request Response
             response = fromhex(f'05 {idm} 00')
         if command_code == 0x06:  # Read Without Encryption
@@ -40,7 +46,6 @@ def emulate(exchange, card, system_code, command):
                 data += card[system_code][service_codes[0]][block]
             response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
         if command_code == 0x0C:  # Request System Code
-            system_codes = [s for s in card.keys() if len(s) == 4]
             response = fromhex(
                 f'0D {idm} {len(system_codes):02x} {" ".join(system_codes)}')
 
@@ -68,20 +73,34 @@ def main(args):
     FILE = args.FILE
     device = 'usb:054c:06c3'
     # DEVICE = args.device
-    # timeout_s = args.timeout
-    timeout_s = 1.
+    timeout_s = args.timeout
 
-    system_code = 'FE00'.lower()
+    system_code = args.system_code
 
     card = json.loads(open(FILE, 'r').read().lower())
 
-    assert card['version'] == VERSION, 'unsupported version'
+    # TODO 0.2
+    assert card['version'] == '0.1', 'Unsupported version'
+
+    system_codes = [s for s in card.keys() if len(s) == 4]
+
+    if system_code is None:
+        system_code = system_codes[0]
+    else:
+        if system_code not in system_codes:
+            print(f'System Code "{system_code}" is not in the file',
+                  file=sys.stderr)
+            exit(1)
 
     if card[system_code]['idm'] == 'random':
         import random
         card[system_code]['idm'] = random.randbytes(8).hex()
 
-    clf = nfc.ContactlessFrontend(device)
+    try:
+        clf = nfc.ContactlessFrontend(device)
+    except OSError:
+        print('No device', file=sys.stderr)
+        exit(1)
 
     try:
         sensf_res = fromhex(
@@ -95,7 +114,9 @@ def main(args):
                 "212F", sensf_res=sensf_res), timeout=1.)
 
         emulate(exchange(clf, timeout_s), card,
-                system_code, target.tt3_cmd)
+                system_code, target.tt3_cmd, system_codes)
+    except KeyboardInterrupt:
+        pass
     finally:
         clf.close()
 
@@ -105,8 +126,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Emulate FeliCa Card')
 
-    parser.add_argument('FILE', help='FeliCa File')
-    parser.add_argument('-t', '--timeout', type=float)
+    parser.add_argument('FILE', help='FeliCa file')
+    parser.add_argument('-t', '--timeout', type=float, default=1.)
+    parser.add_argument('-s', '--system-code')
     parser.add_argument('--device')
 
     args = parser.parse_args()

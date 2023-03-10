@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 import nfc
-from nfc.clf import RemoteTarget
+from nfc.clf import RemoteTarget, TimeoutError
+import sys
 from utils import *
 fromhex = bytearray.fromhex
 
 
 def dump(exchange, idm, system_code_filter, debug=False):
     def dprint(text):
-        import sys
         if debug:
             print(text, file=sys.stderr)
 
@@ -20,6 +20,8 @@ def dump(exchange, idm, system_code_filter, debug=False):
                     for i in range(response_RSC[9])]
 
     dprint(f'{system_codes=}')
+
+    systems = {}
 
     for system_code in system_codes:
         if system_code_filter is not None:
@@ -48,6 +50,8 @@ def dump(exchange, idm, system_code_filter, debug=False):
 
         dprint(f'{service_codes=}')
 
+        services = {}
+
         for service_code in service_codes:
             service = {}
             if len(service_code)//2 == 2:
@@ -56,6 +60,7 @@ def dump(exchange, idm, system_code_filter, debug=False):
                 response_RS = exchange(command_RS).hex()
 
                 if response_RS.endswith('0000'):
+                    blocks = {}
                     block = 0x8000
                     while True:
                         # Read Without Encryption
@@ -66,13 +71,21 @@ def dump(exchange, idm, system_code_filter, debug=False):
                         if SF1 != 0x00:
                             break
                         data = response_RWE[12:].hex()
-                        service['%04x' % block] = data
+                        blocks['%04x' % block] = data
                         block += 1
 
-            if len(service) != 0:
-                system[service_code] = service
+                    if len(blocks) != 0:
+                        service['blocks'] = blocks
 
-        card[system_code] = system
+            if len(service) != 0:
+                services[service_code] = service
+
+            if len(services) != 0:
+                system['services'] = services
+
+        systems[system_code] = system
+
+    card['systems'] = systems
 
     return card
 
@@ -83,21 +96,34 @@ def main(args):
     device = args.device
     FILE = args.output
     system_code_filter = args.system_code_filter
+    lite = args.lite
     # debug = args.debug
 
     clf = nfc.ContactlessFrontend(device)
 
     try:
         target = clf.sense(RemoteTarget("212F"))
-        assert target is not None, 'No card'
-        idm = target.sensf_res[1:9].hex()
-        pmm = target.sensf_res[9:17].hex()
-        card = dump(exchange(clf, 1.), idm, system_code_filter)
+        if target is None:
+            print('No card', file=sys.stderr)
+            exit(1)
+        sensf_res = target.sensf_res
+        idm = sensf_res[1:9].hex()
+        pmm = sensf_res[9:17].hex()
+        if len(sensf_res) == 19:
+            sc = sensf_res[17:19].hex()
+
+        if lite:
+            card = {'version': VERSION,  'systems': {sc: {'IDm': idm}}}
+        else:
+            card = dump(exchange(clf, 1.), idm, system_code_filter)
         card['PMm'] = pmm
         fc = json.dumps(card, indent=True)
         print(fc)
         if FILE is not None:
             open(FILE, 'w').write(fc)
+    except TimeoutError:
+        print('TIMEOUT', file=sys.stderr)
+        # TODO
     finally:
         clf.close()
 
@@ -110,6 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='usb')
     parser.add_argument('-o', '--output', metavar='FILE')
     parser.add_argument('--system-code-filter')
+    parser.add_argument('--lite', action='store_true')
     # parser.add_argument('-d', '--debug', action='store_true')
 
     args = parser.parse_args()
