@@ -25,7 +25,7 @@ def command(exchange, system_code):
 
             r = exchange(fromhex(i))
 
-            if r[0] == 0x01:  # polling
+            if r[0] == 0x01:  # Polling
                 idm = r[1:9].hex()
                 print(f'\t[IDm] set to {idm}', file=sys.stderr)
             h = r.hex()
@@ -45,7 +45,12 @@ def main(args):
     timeout_s = args.timeout
     system_code = args.system_code
 
-    clf = nfc.ContactlessFrontend(device)
+    try:
+        clf = nfc.ContactlessFrontend(device)
+    except OSError:
+        print('No device', file=sys.stderr)
+        exit(1)
+
     try:
         target = clf.sense(RemoteTarget("212F"))
         if target is None:
