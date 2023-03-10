@@ -9,17 +9,19 @@ fromhex = bytearray.fromhex
 
 def emulate(exchange, card, system_code, command, system_codes):
     while True:
-        idm = card[system_code]['idm']
+        idm = card['systems'][system_code]['idm']
         print('<< #', command.hex())
         command_code = command[0]
         response = None
         if command_code == 0x00:  # Polling
             s = command[1:3].hex()
             request_code = command[3]
+            if s == 'ffff':
+                s = min(system_codes)
             if s in system_codes:
                 system_code = s
                 response = fromhex(
-                    f'01 {card[system_code]["idm"]} {card["pmm"]}')
+                    f"01 {card['systems'][system_code]['idm']} {card['pmm']}")
                 if request_code == 0x01:
                     response += fromhex(system_code)
                 if request_code == 0x02:
@@ -30,6 +32,14 @@ def emulate(exchange, card, system_code, command, system_codes):
                 print(f"{sys.argv[0]} doesn't support being scanned",
                       file=sys.stderr)
                 break
+        if command_code == 0x02:  # Request Service
+            assert command[9] == 1, 'TODO'
+            try:
+                if command[10:12].hex() in card['systems'][system_code]['services']:
+                    version = '0000'
+            except KeyError:
+                version = 'ffff'
+            response = fromhex(f'03 {idm} 01 {version}')
         if command_code == 0x04:  # Request Response
             response = fromhex(f'05 {idm} 00')
         if command_code == 0x06:  # Read Without Encryption
@@ -38,13 +48,27 @@ def emulate(exchange, card, system_code, command, system_codes):
             service_codes = [
                 command[10+i*2:10+(i+1)*2].hex() for i in range(m)]
             n = command[10+m*2]
-            assert n*2 == len(command)-(11+m*2), 'TODO'
+            # assert n*2 == len(command)-(11+m*2), 'TODO'
             blocks = [command[11+m*2+i*2:11 +
                               m*2+(i+1)*2].hex() for i in range(n)]
             data = ''
+            failed = False
             for block in blocks:
-                data += card[system_code][service_codes[0]][block]
-            response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
+                if block.startswith('0'):
+                    block = '8'+block[1:4]  # TODO
+                try:
+                    data += card['systems'][system_code]['services'][service_codes[0]
+                                                                     ]['blocks'][block]
+                except KeyError:
+                    failed = True
+            if not failed:
+                response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
+            else:
+                response = fromhex(f'07 {idm} 01 ff')  # TODO
+        # if command_code == 0x0A: # Search Service Code
+        #     print(f'{command=}')
+        #     response = fromhex(f'0B {idm} ')
+        #     pass
         if command_code == 0x0C:  # Request System Code
             response = fromhex(
                 f'0D {idm} {len(system_codes):02x} {" ".join(system_codes)}')
@@ -79,10 +103,10 @@ def main(args):
 
     card = json.loads(open(FILE, 'r').read().lower())
 
-    # TODO 0.2
-    assert card['version'] == '0.1', 'Unsupported version'
+    assert card['version'] == VERSION, 'Unsupported version'
 
-    system_codes = [s for s in card.keys() if len(s) == 4]
+    system_codes = list(card['systems'].keys())
+    print(f'{system_codes=}')
 
     if system_code is None:
         system_code = system_codes[0]
@@ -92,9 +116,9 @@ def main(args):
                   file=sys.stderr)
             exit(1)
 
-    if card[system_code]['idm'] == 'random':
+    if card['systems'][system_code]['idm'] == 'random':
         import random
-        card[system_code]['idm'] = random.randbytes(8).hex()
+        card['systems'][system_code]['idm'] = random.randbytes(8).hex()
 
     try:
         clf = nfc.ContactlessFrontend(device)
@@ -104,7 +128,7 @@ def main(args):
 
     try:
         sensf_res = fromhex(
-            '01' + card[system_code]['idm'] + card['pmm'] + system_code)
+            '01' + card['systems'][system_code]['idm'] + card['pmm'] + system_code)
 
         print('waiting reader...', file=sys.stderr)
 

@@ -25,7 +25,7 @@ def dump(exchange, idm, system_code_filter, debug=False):
 
     for system_code in system_codes:
         if system_code_filter is not None:
-            if system_code != system_code_filter.lower():
+            if system_code not in system_code_filter.split(',').lower():
                 continue
 
         system = {}
@@ -35,7 +35,7 @@ def dump(exchange, idm, system_code_filter, debug=False):
 
         system['IDm'] = idm
 
-        service_codes = []
+        service_code_candidates = []
 
         for i in range(0xFFFF):
             # Search Service Code
@@ -46,7 +46,10 @@ def dump(exchange, idm, system_code_filter, debug=False):
             if s == 'ffff':
                 break
 
-            service_codes.append(s)
+            if len(s)//2 == 2:
+                service_code_candidates.append(s)
+            if len(s)//2 == 4:
+                service_code_candidates += [s[0:4], s[4:8]]
 
         dprint(f'{service_codes=}')
 
@@ -59,29 +62,30 @@ def dump(exchange, idm, system_code_filter, debug=False):
                 command_RS = fromhex(f'02 {idm} 01 {service_code}')
                 response_RS = exchange(command_RS).hex()
 
-                if response_RS.endswith('0000'):
+                if not response_RS.endswith('ffff'):
                     blocks = {}
-                    block = 0x8000
+                    i = 0
                     while True:
                         # Read Without Encryption
                         command_RWE = fromhex(f'06 {idm} 01 {service_code} 01') + \
-                            block.to_bytes(2, "big")
+                            i.to_bytes(2, "big")
                         response_RWE = exchange(command_RWE)
                         SF1, SF2 = response_RWE[9], response_RWE[10]
                         if SF1 != 0x00:
                             break
                         data = response_RWE[12:].hex()
                         blocks['%04x' % block] = data
-                        block += 1
+                        i += 1
 
                     if len(blocks) != 0:
+                        service['version'] = response_RS[-4:]
                         service['blocks'] = blocks
 
             if len(service) != 0:
                 services[service_code] = service
 
-            if len(services) != 0:
-                system['services'] = services
+        if len(services) != 0:
+            system['services'] = services
 
         systems[system_code] = system
 
@@ -97,7 +101,7 @@ def main(args):
     FILE = args.output
     system_code_filter = args.system_code_filter
     lite = args.lite
-    # debug = args.debug
+    debug = args.debug
 
     clf = nfc.ContactlessFrontend(device)
 
@@ -106,24 +110,36 @@ def main(args):
         if target is None:
             print('No card', file=sys.stderr)
             exit(1)
+
         sensf_res = target.sensf_res
         idm = sensf_res[1:9].hex()
         pmm = sensf_res[9:17].hex()
         if len(sensf_res) == 19:
             sc = sensf_res[17:19].hex()
 
+        if sc == '88b4' and not lite:
+            lite = True
+            print('dumping FeliCa Lite is not supported', file=sys.stderr)
+            print('fallback to lite mode', file=sys.stderr)
+
         if lite:
-            card = {'version': VERSION,  'systems': {sc: {'IDm': idm}}}
+            card = {'version': VERSION, 'systems': {sc: {'IDm': idm}}}
         else:
-            card = dump(exchange(clf, 1.), idm, system_code_filter)
+            print('dumping...', file=sys.stderr)
+            card = dump(exchange(clf, 1.), idm, system_code_filter, debug)
         card['PMm'] = pmm
+
         fc = json.dumps(card, indent=True)
+
+        print()
         print(fc)
+        print()
+
         if FILE is not None:
             open(FILE, 'w').write(fc)
+            print(f'output to {FILE}', file=sys.stderr)
     except TimeoutError:
         print('TIMEOUT', file=sys.stderr)
-        # TODO
     finally:
         clf.close()
 
@@ -137,7 +153,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', metavar='FILE')
     parser.add_argument('--system-code-filter')
     parser.add_argument('--lite', action='store_true')
-    # parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
 
