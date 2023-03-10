@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import nfc
 from nfc.clf import RemoteTarget, TimeoutError
 import sys
