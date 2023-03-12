@@ -25,7 +25,7 @@ def dump(exchange, idm, system_code_filter, debug=False):
 
     for system_code in system_codes:
         if system_code_filter is not None:
-            if system_code not in system_code_filter.split(',').lower():
+            if system_code not in system_code_filter.lower().split(','):
                 continue
 
         system = {}
@@ -35,21 +35,18 @@ def dump(exchange, idm, system_code_filter, debug=False):
 
         system['IDm'] = idm
 
-        service_code_candidates = []
+        service_codes = []
 
         for i in range(0xFFFF):
             # Search Service Code
             command_SSC = fromhex(f'0A {idm}') + i.to_bytes(2, "little")
             response_SSC = exchange(command_SSC)
 
-            s = response_SSC[9:].hex()
+            s = response_SSC[9:11].hex()
             if s == 'ffff':
                 break
 
-            if len(s)//2 == 2:
-                service_code_candidates.append(s)
-            if len(s)//2 == 4:
-                service_code_candidates += [s[0:4], s[4:8]]
+            service_codes.append(s)
 
         dprint(f'{service_codes=}')
 
@@ -57,29 +54,27 @@ def dump(exchange, idm, system_code_filter, debug=False):
 
         for service_code in service_codes:
             service = {}
-            if len(service_code)//2 == 2:
-                # Request Service
-                command_RS = fromhex(f'02 {idm} 01 {service_code}')
-                response_RS = exchange(command_RS).hex()
 
-                if not response_RS.endswith('ffff'):
-                    blocks = {}
-                    i = 0
-                    while True:
-                        # Read Without Encryption
-                        command_RWE = fromhex(f'06 {idm} 01 {service_code} 01') + \
-                            i.to_bytes(2, "big")
-                        response_RWE = exchange(command_RWE)
-                        SF1, SF2 = response_RWE[9], response_RWE[10]
-                        if SF1 != 0x00:
-                            break
-                        data = response_RWE[12:].hex()
-                        blocks['%04x' % block] = data
-                        i += 1
-
-                    if len(blocks) != 0:
-                        service['version'] = response_RS[-4:]
-                        service['blocks'] = blocks
+            # Request Service
+            command_RS = fromhex(f'02 {idm} {n:02x} {service_code}')
+            response_RS = exchange(command_RS)
+            if not response_RS.endswith('ffff'):
+                blocks = {}
+                i = 0
+                while True:
+                    # Read Without Encryption
+                    command_RWE = fromhex(f'06 {idm} 01 {service_code} 01') + \
+                        i.to_bytes(2, "big")
+                    response_RWE = exchange(command_RWE)
+                    SF1, SF2 = response_RWE[9], response_RWE[10]
+                    if SF1 != 0x00:
+                        break
+                    data = response_RWE[12:].hex()
+                    blocks['%04x' % block] = data
+                    i += 1
+                if len(blocks) != 0:
+                    service['version'] = response_RS[-4:]
+                    service['blocks'] = blocks
 
             if len(service) != 0:
                 services[service_code] = service
