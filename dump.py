@@ -88,7 +88,7 @@ def dump(raw_exchange, idm, system_code_filter, debug=False):
                     blocks.append(data)
                     i += 1
                 if len(blocks) != 0:
-                    service['key_version'] = key_version
+                    # service['key_version'] = key_version
                     service['blocks'] = blocks
 
             if len(service) != 0:

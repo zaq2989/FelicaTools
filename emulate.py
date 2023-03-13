@@ -26,20 +26,12 @@ def emulate(exchange, card, system_code, command, system_codes):
                     response += fromhex(system_code)
                 if request_code == 0x02:
                     response += fromhex('0083')
-            else:
-                print('Unknown System Code', file=sys.stderr)
-                print('Maybe scanning this?', file=sys.stderr)
-                print(f"{sys.argv[0]} doesn't support being scanned",
-                      file=sys.stderr)
-                break
-        if command_code == 0x02:  # Request Service
-            assert command[9] == 1, 'TODO'
-            try:
-                if command[10:12].hex() in card['systems'][system_code]['services']:
-                    version = '0000'
-            except KeyError:
-                version = 'ffff'
-            response = fromhex(f'03 {idm} 01 {version}')
+            # else:
+            #     print('Unknown System Code', file=sys.stderr)
+            #     print('Maybe scanning this?', file=sys.stderr)
+            #     print(f"{sys.argv[0]} doesn't support being scanned",
+            #           file=sys.stderr)
+            #     break
         if command_code == 0x04:  # Request Response
             response = fromhex(f'05 {idm} 00')
         if command_code == 0x06:  # Read Without Encryption
@@ -65,20 +57,12 @@ def emulate(exchange, card, system_code, command, system_codes):
                 response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
             else:
                 response = fromhex(f'07 {idm} 01 ff')  # TODO
-        # if command_code == 0x0A: # Search Service Code
-        #     print(f'{command=}')
-        #     response = fromhex(f'0B {idm} ')
-        #     pass
         if command_code == 0x0C:  # Request System Code
             response = fromhex(
                 f'0D {idm} {len(system_codes):02x} {" ".join(system_codes)}')
 
-        if response is None:
-            print(f'Unknown command code: {command_code:02x}', file=sys.stderr)
-            break
-
-        assert isinstance(response, bytearray)
-        print('>> #', response.hex())
+        if response is not None:
+            print('>> #', response.hex())
         try:
             command = exchange(response)
         except KeyboardInterrupt:
@@ -103,10 +87,10 @@ def main(args):
 
     card = json.loads(open(FILE, 'r').read().lower())
 
-    assert card['version'] == VERSION, 'Unsupported version'
+    assert card['version'] == FORMAT_VERSION, 'Unsupported version'
 
     system_codes = list(card['systems'].keys())
-    print(f'{system_codes=}')
+    print(f'{system_codes=}', file=sys.stderr)
 
     if system_code is None:
         system_code = system_codes[0]
