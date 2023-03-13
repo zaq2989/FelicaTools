@@ -3,4 +3,4 @@ class exchange():
         return lambda data: clf.exchange((len(data)+1).to_bytes(1, "big") + data, timeout_s)[1:]
 
 
-VERSION = '0.3'
+FORMAT_VERSION = '0.4'

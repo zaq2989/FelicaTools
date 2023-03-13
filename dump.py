@@ -5,14 +5,26 @@ from nfc.clf import RemoteTarget, TimeoutError
 import sys
 from utils import *
 fromhex = bytearray.fromhex
+from_bytes = int.from_bytes
 
 
-def dump(exchange, idm, system_code_filter, debug=False):
+def dump(raw_exchange, idm, system_code_filter, debug=False):
     def dprint(text):
         if debug:
             print(text, file=sys.stderr)
 
-    card = {'version': VERSION}
+    def exchange(command):
+        if debug:
+            print('<<', command.hex(), file=sys.stderr)
+
+        response = raw_exchange(command)
+
+        if debug:
+            print('>>', response.hex(), file=sys.stderr)
+
+        return response
+
+    card = {'version': FORMAT_VERSION}
 
     # Request System Code
     response_RSC = exchange(fromhex(f'0C {idm}'))
@@ -42,8 +54,8 @@ def dump(exchange, idm, system_code_filter, debug=False):
             command_SSC = fromhex(f'0A {idm}') + i.to_bytes(2, "little")
             response_SSC = exchange(command_SSC)
 
-            s = response_SSC[9:11].hex()
-            if s == 'ffff':
+            s = from_bytes(response_SSC[9:11], "little")
+            if s == 0xFFFF:
                 break
 
             service_codes.append(s)
@@ -56,28 +68,31 @@ def dump(exchange, idm, system_code_filter, debug=False):
             service = {}
 
             # Request Service
-            command_RS = fromhex(f'02 {idm} {n:02x} {service_code}')
+            command_RS = fromhex(f'02 {idm} 01') + \
+                service_code.to_bytes(2, "little")
             response_RS = exchange(command_RS)
-            if not response_RS.endswith('ffff'):
-                blocks = {}
+            key_version = from_bytes(response_RS[10:12], "little")
+            dprint(f'{key_version=}')
+            if service_code % 2 == 1:
+                blocks = []
                 i = 0
                 while True:
                     # Read Without Encryption
-                    command_RWE = fromhex(f'06 {idm} 01 {service_code} 01') + \
-                        i.to_bytes(2, "big")
+                    command_RWE = fromhex(f'06 {idm} 01') + service_code.to_bytes(
+                        2, "little") + fromhex('01 00') + i.to_bytes(2, "little")
                     response_RWE = exchange(command_RWE)
                     SF1, SF2 = response_RWE[9], response_RWE[10]
                     if SF1 != 0x00:
                         break
                     data = response_RWE[12:].hex()
-                    blocks['%04x' % block] = data
+                    blocks.append(data)
                     i += 1
                 if len(blocks) != 0:
-                    service['version'] = response_RS[-4:]
+                    service['key_version'] = key_version
                     service['blocks'] = blocks
 
             if len(service) != 0:
-                services[service_code] = service
+                services[service_code.to_bytes(2, "big").hex()] = service
 
         if len(services) != 0:
             system['services'] = services
@@ -112,13 +127,15 @@ def main(args):
         if len(sensf_res) == 19:
             sc = sensf_res[17:19].hex()
 
-        if sc == '88b4' and not lite:
-            lite = True
-            print('dumping FeliCa Lite is not supported', file=sys.stderr)
-            print('fallback to lite mode', file=sys.stderr)
+            if sc == '88b4' and not lite:
+                lite = True
+                print('dumping FeliCa Lite is not supported', file=sys.stderr)
+                print('fallback to lite mode', file=sys.stderr)
+        else:
+            sc = 'ffff'
 
         if lite:
-            card = {'version': VERSION, 'systems': {sc: {'IDm': idm}}}
+            card = {'name': idm, 'systems': {sc: {'IDm': idm}}}
         else:
             print('dumping...', file=sys.stderr)
             card = dump(exchange(clf, 1.), idm, system_code_filter, debug)
