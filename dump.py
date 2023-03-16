@@ -138,7 +138,7 @@ def main(args):
             card = {'name': idm, 'systems': {sc: {'IDm': idm}}}
         else:
             print('dumping...', file=sys.stderr)
-            card = dump(exchange(clf, 1.), idm, system_code_filter, debug)
+            card = dump(make_exchange(clf, 1.), idm, system_code_filter, debug)
         card['PMm'] = pmm
 
         fc = json.dumps(card, indent=True)

@@ -121,7 +121,7 @@ def main(args):
             target = clf.listen(LocalTarget(
                 "212F", sensf_res=sensf_res), timeout=1.)
 
-        emulate(exchange(clf, timeout_s), card,
+        emulate(make_exchange(clf, timeout_s), card,
                 system_code, target.tt3_cmd, system_codes)
     except KeyboardInterrupt:
         pass

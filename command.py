@@ -3,7 +3,7 @@
 import nfc
 from nfc.clf import RemoteTarget, TimeoutError
 import sys
-from utils import exchange
+from utils import make_exchange
 fromhex = bytearray.fromhex
 
 
@@ -57,7 +57,7 @@ def main(args):
             print('No card', file=sys.stderr)
             exit(1)
 
-        command(exchange(clf, timeout_s), system_code)
+        command(make_exchange(clf, timeout_s), system_code)
     finally:
         clf.close()
 
