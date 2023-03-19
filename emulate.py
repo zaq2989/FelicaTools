@@ -3,7 +3,7 @@
 import nfc
 from nfc.clf import LocalTarget, TimeoutError, BrokenLinkError
 import sys
-from utils import *
+from base import *
 fromhex = bytearray.fromhex
 
 
@@ -132,12 +132,12 @@ def main(args):
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='Emulate FeliCa Card')
+    parser = argparse.ArgumentParser(description='Emulate FeliCa')
 
     parser.add_argument('FILE', help='FeliCa file')
-    parser.add_argument('-t', '--timeout', type=float, default=1.)
-    parser.add_argument('-s', '--system-code')
-    parser.add_argument('--device')
+    parser.add_argument('-s', '--system-code', metavar='',
+                        help='emulating system code')
+    add_base_argument(parser)
 
     args = parser.parse_args()
 

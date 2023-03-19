@@ -3,7 +3,7 @@
 import nfc
 from nfc.clf import RemoteTarget, TimeoutError
 import sys
-from utils import make_exchange
+from base import *
 fromhex = bytearray.fromhex
 
 
@@ -41,15 +41,15 @@ def command(exchange, system_code):
 
 
 def main(args):
-    device = args.device
-    timeout_s = args.timeout
     system_code = args.system_code
+    timeout_s = args.timeout
+    device = args.device
 
     try:
         clf = nfc.ContactlessFrontend(device)
     except OSError:
         print('No device', file=sys.stderr)
-        exit(1)
+        exit(3)
 
     try:
         target = clf.sense(RemoteTarget("212F"))
@@ -68,12 +68,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Communicate directly with FeliCa')
 
-    parser.add_argument('--device', default='usb',
-                        help='specify device (DEFAULT:usb)')
-    parser.add_argument('-t', '--timeout', type=float, default=1.,
-                        help='exchange timeout [s] (DEFAULT:1s)')
-    parser.add_argument('-s', '--system-code', default='FFFF',
-                        help='polling system code (DEFAULT:FFFF)')
+    parser.add_argument('-s', '--system-code', metavar='', default='FFFF',
+                        help=f'polling system code {HELP_DEFAULT}')
+    add_base_argument(parser)
 
     args = parser.parse_args()
 

@@ -3,7 +3,7 @@
 import nfc
 from nfc.clf import RemoteTarget, TimeoutError
 import sys
-from utils import *
+from base import *
 fromhex = bytearray.fromhex
 from_bytes = int.from_bytes
 
@@ -159,13 +159,14 @@ def main(args):
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser('Dump FeliCa')
 
-    parser.add_argument('--device', default='usb')
     parser.add_argument('-o', '--output', metavar='FILE')
-    parser.add_argument('--system-code-filter')
+    parser.add_argument('--system-code-filter', nargs='+',
+                        metavar='system code(s)', help='')
     parser.add_argument('--lite', action='store_true')
-    parser.add_argument('--debug', action='store_true')
+
+    add_base_argument(parser)
 
     args = parser.parse_args()
 
