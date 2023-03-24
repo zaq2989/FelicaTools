@@ -48,8 +48,8 @@ def emulate(exchange, card, system_code, command, system_codes):
             for block_list in block_lists:
                 if block_list.startswith('8'):
                     block = int(block_list[2:4], 16)
-                else:  # TODO
-                    pass
+                else:
+                    block = None  # TODO
                 try:
                     data += card['systems'][system_code]['services'][service_codes[0]
                                                                      ]['blocks'][block]
