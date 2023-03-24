@@ -110,9 +110,9 @@ def main(args):
 
     print(f'{system_code=}')
 
-    # if card['systems'][system_code]['idm'] == 'random':
-    #     import random
-    #     card['systems'][system_code]['idm'] = random.randbytes(8).hex()
+    if card['systems'][system_code]['idm'] == 'random':
+        import random
+        card['systems'][system_code]['idm'] = random.randbytes(8).hex()
 
     try:
         clf = ContactlessFrontend(device)
