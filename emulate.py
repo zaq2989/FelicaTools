@@ -55,6 +55,7 @@ def emulate(exchange, card, system_code, command, system_codes):
                                                                      ]['blocks'][block]
                 except (IndexError, KeyError):
                     succeeded = False
+                    break
             if succeeded:
                 response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
             else:
