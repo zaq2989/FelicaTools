@@ -1,4 +1,4 @@
-FORMAT_VERSION = '0.4'
+FORMAT_VERSION = '0.5'
 HELP_DEFAULT = '(default:%(default)s)'
 
 
