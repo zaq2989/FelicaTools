@@ -7,20 +7,15 @@ fromhex = bytearray.fromhex
 from_bytes = int.from_bytes
 
 
-def dump(raw_exchange, idm, system_code_filter, debug=False):
-    def dprint(text):
+def dump(raw_exchange, idm, system_codes_to_dump, debug=False):
+    def dprint(*args):
         if debug:
-            print(text, file=sys.stderr)
+            print(*args, file=sys.stderr)
 
     def exchange(command):
-        if debug:
-            print('<<', command.hex(), file=sys.stderr)
-
+        dprint('<<', command.hex())
         response = raw_exchange(command)
-
-        if debug:
-            print('>>', response.hex(), file=sys.stderr)
-
+        dprint('>>', response.hex())
         return response
 
     card = {'version': FORMAT_VERSION}
@@ -35,8 +30,8 @@ def dump(raw_exchange, idm, system_code_filter, debug=False):
     systems = {}
 
     for system_code in system_codes:
-        if system_code_filter is not None:
-            if system_code not in system_code_filter.lower().split(','):
+        if system_codes_to_dump is not None:
+            if system_code not in system_codes_to_dump:
                 continue
 
         system = {}
@@ -108,7 +103,7 @@ def main(args):
 
     device = args.device
     FILE = args.output
-    system_code_filter = args.system_code_filter
+    system_codes_to_dump = args.system_codes
     lite = args.lite
     debug = args.debug
 
@@ -137,10 +132,11 @@ def main(args):
             card = {'name': idm, 'systems': {sc: {'IDm': idm}}}
         else:
             print('dumping...', file=sys.stderr)
-            card = dump(make_exchange(clf, 1.), idm, system_code_filter, debug)
+            card = dump(make_exchange(clf, 1.), idm,
+                        system_codes_to_dump, debug)
         card['PMm'] = pmm
 
-        fc = json.dumps(card, indent=True)
+        fc = json.dumps(card, indent=2)
 
         print()
         print(fc)
@@ -160,12 +156,14 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Dump FeliCa')
 
-    parser.add_argument('-o', '--output', metavar='FILE')
-    parser.add_argument('--system-code-filter', nargs='+',
-                        metavar='system code(s)', help='')
-    parser.add_argument('--lite', action='store_true')
-
     add_base_argument(parser)
+
+    parser.add_argument('-o', '--output', metavar='FILE',
+                        help='file to output')
+    parser.add_argument('--system-codes', nargs='+',
+                        metavar='', help='system code(s) to dump')
+    parser.add_argument('--lite', action='store_true',
+                        help='enable lite mode')
 
     args = parser.parse_args()
 
