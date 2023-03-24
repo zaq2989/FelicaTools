@@ -67,9 +67,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Communicate directly with FeliCa')
 
+    add_base_argument(parser)
     parser.add_argument('-s', '--system-code', metavar='', default='FFFF',
                         help=f'polling system code {HELP_DEFAULT}')
-    add_base_argument(parser)
 
     args = parser.parse_args()
 
