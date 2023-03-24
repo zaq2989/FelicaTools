@@ -107,7 +107,11 @@ def main(args):
     lite = args.lite
     debug = args.debug
 
-    clf = ContactlessFrontend(device)
+    try:
+        clf = ContactlessFrontend(device)
+    except OSError:
+        print('No device', file=sys.stderr)
+        exit(3)
 
     try:
         target = clf.sense(RemoteTarget("212F"))
