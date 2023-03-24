@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-import nfc
-from nfc.clf import RemoteTarget, TimeoutError
+from nfc.clf import ContactlessFrontend, RemoteTarget, TimeoutError
 import sys
 from base import *
 fromhex = bytearray.fromhex
@@ -46,7 +45,7 @@ def main(args):
     device = args.device
 
     try:
-        clf = nfc.ContactlessFrontend(device)
+        clf = ContactlessFrontend(device)
     except OSError:
         print('No device', file=sys.stderr)
         exit(3)

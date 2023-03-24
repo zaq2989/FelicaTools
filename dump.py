@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-import nfc
-from nfc.clf import RemoteTarget, TimeoutError
+from nfc.clf import ContactlessFrontend, RemoteTarget, TimeoutError
 import sys
 from base import *
 fromhex = bytearray.fromhex
@@ -113,7 +112,7 @@ def main(args):
     lite = args.lite
     debug = args.debug
 
-    clf = nfc.ContactlessFrontend(device)
+    clf = ContactlessFrontend(device)
 
     try:
         target = clf.sense(RemoteTarget("212F"))

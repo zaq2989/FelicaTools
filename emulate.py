@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-import nfc
-from nfc.clf import LocalTarget, TimeoutError, BrokenLinkError
+from nfc.clf import ContactlessFrontend, LocalTarget, TimeoutError, BrokenLinkError
 import sys
 from base import *
 fromhex = bytearray.fromhex
@@ -105,7 +104,7 @@ def main(args):
         card['systems'][system_code]['idm'] = random.randbytes(8).hex()
 
     try:
-        clf = nfc.ContactlessFrontend(device)
+        clf = ContactlessFrontend(device)
     except OSError:
         print('No device', file=sys.stderr)
         exit(1)
