@@ -4,6 +4,7 @@ from nfc.clf import ContactlessFrontend, LocalTarget, TimeoutError, BrokenLinkEr
 import sys
 from base import *
 fromhex = bytearray.fromhex
+from_bytes = int.from_bytes
 
 
 def emulate(exchange, card, system_code, command, system_codes):
@@ -25,12 +26,12 @@ def emulate(exchange, card, system_code, command, system_codes):
                     response += fromhex(system_code)
                 if request_code == 0x02:
                     response += fromhex('0083')
-            # else:
-            #     print('Unknown System Code', file=sys.stderr)
-            #     print('Maybe scanning this?', file=sys.stderr)
-            #     print(f"{sys.argv[0]} doesn't support being scanned",
-            #           file=sys.stderr)
-            #     break
+            else:
+                print(f'Unknown System Code: {s}', file=sys.stderr)
+                print('Maybe scanning this?', file=sys.stderr)
+                print(f"{sys.argv[0]} doesn't support being scanned",
+                      file=sys.stderr)
+                break
         if command_code == 0x04:  # Request Response
             response = fromhex(f'05 {idm} 00')
         if command_code == 0x06:  # Read Without Encryption
@@ -40,21 +41,24 @@ def emulate(exchange, card, system_code, command, system_codes):
                 command[10+i*2:10+(i+1)*2].hex() for i in range(m)]
             n = command[10+m*2]
             # assert n*2 == len(command)-(11+m*2), 'TODO'
-            blocks = [command[11+m*2+i*2:11 +
-                              m*2+(i+1)*2].hex() for i in range(n)]
+            block_lists = [command[11+m*2+i*2:11 +
+                                   m*2+(i+1)*2].hex() for i in range(n)]
             data = ''
-            failed = False
-            for block in blocks:
-                if block.startswith('0'):
-                    block = '8'+block[1:4]  # TODO
+            succeeded = True
+            for block_list in block_lists:
+                if block_list.startswith('8'):
+                    block = int(block_list[2:4], 16)
+                else:  # TODO
+                    pass
                 try:
                     data += card['systems'][system_code]['services'][service_codes[0]
                                                                      ]['blocks'][block]
-                except KeyError:
-                    failed = True
-            if not failed:
+                except (IndexError, KeyError):
+                    succeeded = False
+            if succeeded:
                 response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
             else:
+                print('Something went wrong', file=sys.stderr)
                 response = fromhex(f'07 {idm} 01 ff')  # TODO
         if command_code == 0x0C:  # Request System Code
             response = fromhex(
@@ -62,6 +66,10 @@ def emulate(exchange, card, system_code, command, system_codes):
 
         if response is not None:
             print('>> #', response.hex())
+        else:
+            print(f'Unknown Command Code: {command_code:02x}', file=sys.stderr)
+            break
+
         try:
             command = exchange(response)
         except KeyboardInterrupt:
@@ -78,8 +86,8 @@ def main(args):
     import json
 
     FILE = args.FILE
+    # device = args.device
     device = 'usb:054c:06c3'
-    # DEVICE = args.device
     timeout_s = args.timeout
 
     system_code = args.system_code
@@ -92,22 +100,24 @@ def main(args):
     print(f'{system_codes=}', file=sys.stderr)
 
     if system_code is None:
-        system_code = system_codes[0]
+        system_code = system_codes[-1]  # rule of thumb
     else:
         if system_code not in system_codes:
             print(f'System Code "{system_code}" is not in the file',
                   file=sys.stderr)
             exit(1)
 
-    if card['systems'][system_code]['idm'] == 'random':
-        import random
-        card['systems'][system_code]['idm'] = random.randbytes(8).hex()
+    print(f'{system_code=}')
+
+    # if card['systems'][system_code]['idm'] == 'random':
+    #     import random
+    #     card['systems'][system_code]['idm'] = random.randbytes(8).hex()
 
     try:
         clf = ContactlessFrontend(device)
     except OSError:
         print('No device', file=sys.stderr)
-        exit(1)
+        exit(3)
 
     try:
         sensf_res = fromhex(
@@ -119,6 +129,8 @@ def main(args):
         while target is None:
             target = clf.listen(LocalTarget(
                 "212F", sensf_res=sensf_res), timeout=1.)
+
+        print('starting emulation', file=sys.stderr)
 
         emulate(make_exchange(clf, timeout_s), card,
                 system_code, target.tt3_cmd, system_codes)
@@ -133,10 +145,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Emulate FeliCa')
 
+    add_base_argument(parser)
     parser.add_argument('FILE', help='FeliCa file')
     parser.add_argument('-s', '--system-code', metavar='',
-                        help='emulating system code')
-    add_base_argument(parser)
+                        help='system code to emulate')
 
     args = parser.parse_args()
 
