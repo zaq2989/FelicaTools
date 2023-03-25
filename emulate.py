@@ -38,7 +38,7 @@ def emulate(exchange, card, system_code, command, system_codes):
             m = command[9]
             assert m == 1, 'TODO'
             service_codes = [
-                command[10+i*2:10+(i+1)*2].hex() for i in range(m)]
+                command[9+(i+1)*2:9+i*2:-1].hex() for i in range(m)]
             n = command[10+m*2]
             # assert n*2 == len(command)-(11+m*2), 'TODO'
             block_lists = [command[11+m*2+i*2:11 +
@@ -50,12 +50,8 @@ def emulate(exchange, card, system_code, command, system_codes):
                     block = int(block_list[2:4], 16)
                 else:
                     block = None  # TODO
-                try:
-                    data += card['systems'][system_code]['services'][service_codes[0]
+                data += card['systems'][system_code]['services'][service_codes[0]
                                                                      ]['blocks'][block]
-                except (IndexError, KeyError):
-                    succeeded = False
-                    break
             if succeeded:
                 response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
             else:
