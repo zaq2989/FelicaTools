@@ -50,12 +50,17 @@ def emulate(exchange, card, system_code, command, system_codes):
                     block = int(block_list[2:4], 16)
                 else:
                     block = None  # TODO
-                data += card['systems'][system_code]['services'][service_codes[0]
+                try:
+                    data += card['systems'][system_code]['services'][service_codes[0]
                                                                      ]['blocks'][block]
+                except (IndexError, KeyError) as e:
+                    print(e, file=sys.stderr)
+                    succeeded = False
+                    break
             if succeeded:
                 response = fromhex(f'07 {idm} 00 00 {n:02x} {data}')
             else:
-                print('Something went wrong', file=sys.stderr)
+                print('Something went wrong :(', file=sys.stderr)
                 response = fromhex(f'07 {idm} 01 ff')  # TODO
         if command_code == 0x0C:  # Request System Code
             response = fromhex(
