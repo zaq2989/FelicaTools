@@ -2,7 +2,7 @@
 
 Miscellaneous FeliCa Tools
 
-**🚧Under Construction🚧** on [develop branch](https://github.com/OLIET2357/FelicaTools/tree/develop)
+**🚧Under Construction🚧**
 
 # Preparation
 
