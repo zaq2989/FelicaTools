@@ -25,6 +25,7 @@ def emulate(exchange, card, system_code, command, system_codes):
                 if request_code == 0x01:
                     response += fromhex(system_code)
                 if request_code == 0x02:
+                    # TODO
                     response += fromhex('0083')
             else:
                 print(f'Unknown System Code: {s}', file=sys.stderr)
