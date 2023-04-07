@@ -2,15 +2,15 @@
 
 Miscellaneous FeliCa Tools
 
-**🚧Under Construction🚧** on [develop branch](https://github.com/OLIET2357/FelicaTools/tree/develop)
+**🚧Under Construction🚧**
 
 # Preparation
 
 ## nfcpy
 
-`pip install nfcpy`
-
 [Getting started - nfcpy documentation](https://nfcpy.readthedocs.io/en/latest/topics/get-started.html)
+
+`pip install nfcpy`
 
 ### Windows
 
@@ -26,28 +26,17 @@ Nothing to do.
 
 # Features
 
-## Dump
-
-`python dump.py [FILE]`
-
-## Emulate
-
-`python emulate.py [DUMPFILE]`
-
-Support dump files
-
-- Output of `dump.py`
-- Output of `tagtool.py -v show` (including `Memory Dump:`)
-- Tagtool(TODO:link)
-
 ## Command
 
 `python command.py`
 
-send stdin command i.e. `0600ffff00`
+send raw command from stdin i.e. `00 ffff 01 00`
 
-## Relay
+## Dump
 
-`python relay.py`
+`python dump.py -o [FILE]`
 
-Require two devices
+## Emulate
+
+`python emulate.py [FILE]`
+
