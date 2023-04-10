@@ -2,9 +2,13 @@
 
 Miscellaneous FeliCa Tools
 
-**🚧Under Construction🚧**
-
 # Preparation
+
+## device
+
+any device can read
+
+need RC-S380 to emulate
 
 ## nfcpy
 
@@ -40,3 +44,6 @@ send raw command from stdin i.e. `00 ffff 01 00`
 
 `python emulate.py [FILE]`
 
+## Format
+
+dump and emulate use common [FeliCa-Format](https://github.com/OLIET2357/FeliCa-Format)
